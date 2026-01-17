@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flask Joystick</title>
+<style>
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: #222;
+    color: #fff;
+    font-family: sans-serif;
+  }
+  #joystick {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    background: #444;
+    border-radius: 50%;
+    touch-action: none;
+  }
+  #stick {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    background: #f39c12;
+    border-radius: 50%;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+</style>
+</head>
+<body>
+<div id="joystick">
+  <div id="stick"></div>
+</div>
+
+<script>
+const joystick = document.getElementById('joystick');
+const stick = document.getElementById('stick');
+const center = { x: joystick.clientWidth / 2, y: joystick.clientHeight / 2 };
+let active = false;
+
+function sendDirection(direction) {
+  fetch('/joystick', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ direction })
+  });
+}
+
+function getDirection(x, y) {
+  const dx = x - center.x;
+  const dy = y - center.y;
+  const absDx = Math.abs(dx);
+  const absDy = Math.abs(dy);
+
+  if (absDx < 20 && absDy < 20) return 'stop';
+  if (absDx > absDy) return dx > 0 ? 'right' : 'left';
+  return dy > 0 ? 'down' : 'up';
+}
+
+function moveStick(x, y) {
+  const rect = joystick.getBoundingClientRect();
+  let nx = x - rect.left;
+  let ny = y - rect.top;
+  
+  // Clamp within joystick radius
+  const radius = joystick.clientWidth / 2 - stick.clientWidth / 2;
+  const dx = nx - center.x;
+  const dy = ny - center.y;
+  const distance = Math.sqrt(dx*dx + dy*dy);
+  if (distance > radius) {
+    nx = center.x + dx / distance * radius;
+    ny = center.y + dy / distance * radius;
+  }
+  
+  stick.style.left = nx + 'px';
+  stick.style.top = ny + 'px';
+
+  sendDirection(getDirection(nx, ny));
+}
+
+function resetStick() {
+  stick.style.left = '50%';
+  stick.style.top = '50%';
+  sendDirection('stop');
+}
+
+joystick.addEventListener('mousedown', e => { active = true; moveStick(e.clientX, e.clientY); });
+joystick.addEventListener('touchstart', e => { active = true; moveStick(e.touches[0].clientX, e.touches[0].clientY); });
+
+window.addEventListener('mousemove', e => { if (active) moveStick(e.clientX, e.clientY); });
+window.addEventListener('touchmove', e => { if (active) moveStick(e.touches[0].clientX, e.touches[0].clientY); });
+
+window.addEventListener('mouseup', () => { if (active) { active = false; resetStick(); } });
+window.addEventListener('touchend', () => { if (active) { active = false; resetStick(); } });
+</script>
+</body>
+</html>
