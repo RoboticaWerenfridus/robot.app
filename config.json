@@ -1,0 +1,14 @@
+{
+  "backwards_enabled": true,
+
+  "motors": {
+    "left": {
+      "forward": 17,
+      "backward": 18
+    },
+    "right": {
+      "forward": 22,
+      "backward": 23
+    }
+  }
+}
