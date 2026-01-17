@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Flask Joystick</title>
+<title>Smooth Joystick</title>
 <style>
   body {
     display: flex;
@@ -31,6 +31,7 @@
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
+    transition: left 0.05s, top 0.05s;
   }
 </style>
 </head>
@@ -43,52 +44,47 @@
 const joystick = document.getElementById('joystick');
 const stick = document.getElementById('stick');
 const center = { x: joystick.clientWidth / 2, y: joystick.clientHeight / 2 };
+const maxRadius = joystick.clientWidth / 2 - stick.clientWidth / 2;
 let active = false;
 
-function sendDirection(direction) {
+function sendDirection(x, y) {
   fetch('/joystick', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ direction })
+    body: JSON.stringify({ x, y })
   });
 }
 
-function getDirection(x, y) {
-  const dx = x - center.x;
-  const dy = y - center.y;
-  const absDx = Math.abs(dx);
-  const absDy = Math.abs(dy);
-
-  if (absDx < 20 && absDy < 20) return 'stop';
-  if (absDx > absDy) return dx > 0 ? 'right' : 'left';
-  return dy > 0 ? 'down' : 'up';
-}
-
-function moveStick(x, y) {
+function moveStick(clientX, clientY) {
   const rect = joystick.getBoundingClientRect();
-  let nx = x - rect.left;
-  let ny = y - rect.top;
-  
-  // Clamp within joystick radius
-  const radius = joystick.clientWidth / 2 - stick.clientWidth / 2;
-  const dx = nx - center.x;
-  const dy = ny - center.y;
-  const distance = Math.sqrt(dx*dx + dy*dy);
-  if (distance > radius) {
-    nx = center.x + dx / distance * radius;
-    ny = center.y + dy / distance * radius;
-  }
-  
-  stick.style.left = nx + 'px';
-  stick.style.top = ny + 'px';
+  let x = clientX - rect.left;
+  let y = clientY - rect.top;
 
-  sendDirection(getDirection(nx, ny));
+  // Calculate displacement from center
+  let dx = x - center.x;
+  let dy = y - center.y;
+
+  // Clamp within radius
+  const distance = Math.sqrt(dx*dx + dy*dy);
+  if (distance > maxRadius) {
+    dx = dx / distance * maxRadius;
+    dy = dy / distance * maxRadius;
+  }
+
+  // Move stick
+  stick.style.left = (center.x + dx) + 'px';
+  stick.style.top = (center.y + dy) + 'px';
+
+  // Normalize x/y to -1 to 1 for smooth directional control
+  const normX = dx / maxRadius;
+  const normY = dy / maxRadius;
+  sendDirection(normX, normY);
 }
 
 function resetStick() {
   stick.style.left = '50%';
   stick.style.top = '50%';
-  sendDirection('stop');
+  sendDirection(0, 0); // stop
 }
 
 joystick.addEventListener('mousedown', e => { active = true; moveStick(e.clientX, e.clientY); });
