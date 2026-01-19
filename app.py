@@ -84,7 +84,7 @@ def set_mer():
     global mer_process
     mer = request.json.get("mer", False)
     if mer and mer_process is None:
-        mer_process = subprocess.Popen(["python3", "mer_us_sv.py"])
+        mer_process = subprocess.Popen(["sudo", "python3", "mer_us_sv.py"])
     elif not mer and mer_process is not None:
         mer_process.terminate()
         mer_process.wait()
