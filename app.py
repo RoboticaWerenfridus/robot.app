@@ -9,7 +9,6 @@ app = Flask(__name__)
 last_direction = "stop"
 mer_process = None
 
-# Load config.json relative to this script
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 
@@ -23,24 +22,25 @@ LEFT_BIAS = 85
 RIGHT_BIAS = 100
 PWM_FREQ = 1000
 
-# --- GPIO Setup ---
+GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
-GPIO.cleanup()   
+GPIO.cleanup()
 
 PWM_CHANNELS = {}
 
-# Initialize PWM channels safely
 for side, dirs in MOTORS.items():
     for pin in dirs.values():
-        GPIO.setmode(GPIO.BCM)  
         GPIO.setup(pin, GPIO.OUT)
         if pin in PWM_CHANNELS:
-            PWM_CHANNELS[pin].stop()
-        pwm = GPIO.PWM(pin, PWM_FREQ)
-        pwm.start(0)
-        PWM_CHANNELS[pin] = pwm
+            try:
+                PWM_CHANNELS[pin].stop()
+            except Exception:
+                pass
+        if pin not in PWM_CHANNELS:
+            pwm = GPIO.PWM(pin, PWM_FREQ)
+            pwm.start(0)
+            PWM_CHANNELS[pin] = pwm
 
-# --- Motor Control Functions ---
 def stop():
     for pwm in PWM_CHANNELS.values():
         pwm.ChangeDutyCycle(0)
@@ -77,7 +77,6 @@ def drive(direction):
     elif direction == "right":
         right()
 
-# --- Flask Routes ---
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -108,7 +107,6 @@ def set_mer():
 def accessory():
     return jsonify(status="ok", **request.json)
 
-# --- Cleanup on exit ---
 def cleanup():
     stop()
     for pwm in PWM_CHANNELS.values():
@@ -119,6 +117,5 @@ def cleanup():
 
 atexit.register(cleanup)
 
-# --- Run Flask ---
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80)
