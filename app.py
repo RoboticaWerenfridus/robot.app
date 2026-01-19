@@ -3,16 +3,12 @@ import RPi.GPIO as GPIO
 import json
 import atexit
 import subprocess
-import os
 
 app = Flask(__name__)
 last_direction = "stop"
 mer_process = None
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
-
-with open(CONFIG_PATH) as f:
+with open("config.json") as f:
     config = json.load(f)
 
 BACKWARDS_ENABLED = config.get("backwards_enabled", False)
@@ -24,22 +20,15 @@ PWM_FREQ = 1000
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
-GPIO.cleanup()
 
 PWM_CHANNELS = {}
 
 for side, dirs in MOTORS.items():
     for pin in dirs.values():
         GPIO.setup(pin, GPIO.OUT)
-        if pin in PWM_CHANNELS:
-            try:
-                PWM_CHANNELS[pin].stop()
-            except Exception:
-                pass
-        if pin not in PWM_CHANNELS:
-            pwm = GPIO.PWM(pin, PWM_FREQ)
-            pwm.start(0)
-            PWM_CHANNELS[pin] = pwm
+        pwm = GPIO.PWM(pin, PWM_FREQ)
+        pwm.start(0)
+        PWM_CHANNELS[pin] = pwm
 
 def stop():
     for pwm in PWM_CHANNELS.values():
@@ -94,9 +83,8 @@ def joystick():
 def set_mer():
     global mer_process
     mer = request.json.get("mer", False)
-    mer_script = os.path.join(BASE_DIR, "mer_us_sv.py")
     if mer and mer_process is None:
-        mer_process = subprocess.Popen(["python3", mer_script])
+        mer_process = subprocess.Popen(["python3", "mer_us_sv.py"])
     elif not mer and mer_process is not None:
         mer_process.terminate()
         mer_process.wait()
