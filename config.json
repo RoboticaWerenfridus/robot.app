@@ -3,12 +3,12 @@
 
   "motors": {
     "left": {
-      "forward": 17,
-      "backward": 18
+      "forward": 6,
+      "backward": 0
     },
     "right": {
-      "forward": 22,
-      "backward": 23
+      "forward": 12,
+      "backward": 0
     }
   }
 }
