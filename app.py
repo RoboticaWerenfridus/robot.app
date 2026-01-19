@@ -2,9 +2,11 @@ from flask import Flask, render_template, request, jsonify
 import RPi.GPIO as GPIO
 import json
 import atexit
+import subprocess
 
 app = Flask(__name__)
 last_direction = "stop"
+mer_process = None
 
 with open("config.json") as f:
     config = json.load(f)
@@ -12,51 +14,49 @@ with open("config.json") as f:
 BACKWARDS_ENABLED = config.get("backwards_enabled", False)
 MOTORS = config["motors"]
 
+LEFT_BIAS = 85
+RIGHT_BIAS = 100
+PWM_FREQ = 1000
+
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 
-USED_PINS = set()
+PWM_CHANNELS = {}
 
-for side in MOTORS.values():
-    for pin in side.values():
-        USED_PINS.add(pin)
-
-for pin in USED_PINS:
-    GPIO.setup(pin, GPIO.OUT)
-    GPIO.output(pin, GPIO.LOW)
+for side, dirs in MOTORS.items():
+    for pin in dirs.values():
+        GPIO.setup(pin, GPIO.OUT)
+        pwm = GPIO.PWM(pin, PWM_FREQ)
+        pwm.start(0)
+        PWM_CHANNELS[pin] = pwm
 
 def stop():
-    for pin in USED_PINS:
-        GPIO.output(pin, GPIO.LOW)
+    for pwm in PWM_CHANNELS.values():
+        pwm.ChangeDutyCycle(0)
 
 def forward():
-    GPIO.output(MOTORS["left"]["forward"], GPIO.HIGH)
-    GPIO.output(MOTORS["right"]["forward"], GPIO.HIGH)
+    PWM_CHANNELS[MOTORS["left"]["forward"]].ChangeDutyCycle(LEFT_BIAS)
+    PWM_CHANNELS[MOTORS["right"]["forward"]].ChangeDutyCycle(RIGHT_BIAS)
 
 def backward():
     if not BACKWARDS_ENABLED:
         stop()
         return
-    GPIO.output(MOTORS["left"]["backward"], GPIO.HIGH)
-    GPIO.output(MOTORS["right"]["backward"], GPIO.HIGH)
+    PWM_CHANNELS[MOTORS["left"]["backward"]].ChangeDutyCycle(LEFT_BIAS)
+    PWM_CHANNELS[MOTORS["right"]["backward"]].ChangeDutyCycle(RIGHT_BIAS)
 
 def left():
+    PWM_CHANNELS[MOTORS["right"]["forward"]].ChangeDutyCycle(RIGHT_BIAS)
     if BACKWARDS_ENABLED:
-        GPIO.output(MOTORS["left"]["backward"], GPIO.HIGH)
-        GPIO.output(MOTORS["right"]["forward"], GPIO.HIGH)
-    else:
-        GPIO.output(MOTORS["right"]["forward"], GPIO.HIGH)
+        PWM_CHANNELS[MOTORS["left"]["backward"]].ChangeDutyCycle(LEFT_BIAS)
 
 def right():
+    PWM_CHANNELS[MOTORS["left"]["forward"]].ChangeDutyCycle(LEFT_BIAS)
     if BACKWARDS_ENABLED:
-        GPIO.output(MOTORS["left"]["forward"], GPIO.HIGH)
-        GPIO.output(MOTORS["right"]["backward"], GPIO.HIGH)
-    else:
-        GPIO.output(MOTORS["left"]["forward"], GPIO.HIGH)
+        PWM_CHANNELS[MOTORS["right"]["backward"]].ChangeDutyCycle(RIGHT_BIAS)
 
 def drive(direction):
     stop()
-
     if direction == "up":
         forward()
     elif direction == "down":
@@ -65,8 +65,6 @@ def drive(direction):
         left()
     elif direction == "right":
         right()
-    else:
-        stop()
 
 @app.route('/')
 def index():
@@ -75,36 +73,35 @@ def index():
 @app.route('/joystick', methods=['POST'])
 def joystick():
     global last_direction
-
     direction = request.json.get("direction", "stop")
-
     if direction != last_direction:
         last_direction = direction
         drive(direction)
-        print(f"Direction: {direction}")
-
-    return jsonify({
-        "status": "ok",
-        "direction": direction,
-        "backwards_enabled": BACKWARDS_ENABLED
-    })
+    return jsonify(status="ok", direction=direction, backwards_enabled=BACKWARDS_ENABLED)
 
 @app.route('/mer', methods=['POST'])
 def set_mer():
+    global mer_process
     mer = request.json.get("mer", False)
-    print("MER:", mer)
-    return jsonify({"status": "ok", "mer": mer})
+    if mer and mer_process is None:
+        mer_process = subprocess.Popen(["python3", "mer_us_sv.py"])
+    elif not mer and mer_process is not None:
+        mer_process.terminate()
+        mer_process.wait()
+        mer_process = None
+    return jsonify(status="ok", mer=mer)
 
 @app.route('/accessory', methods=['POST'])
 def accessory():
-    action = request.json.get("action")
-    state = request.json.get("state", False)
-    print(f"{action}: {state}")
-    return jsonify({"status": "ok", "action": action, "state": state})
+    return jsonify(status="ok", **request.json)
 
 def cleanup():
     stop()
+    for pwm in PWM_CHANNELS.values():
+        pwm.stop()
     GPIO.cleanup()
+    if mer_process:
+        mer_process.terminate()
 
 atexit.register(cleanup)
 
