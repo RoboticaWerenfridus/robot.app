@@ -2,13 +2,17 @@ from flask import Flask, render_template, request, jsonify
 import RPi.GPIO as GPIO
 import json
 import atexit
+import os
 import subprocess
 
 app = Flask(__name__)
 last_direction = "stop"
 mer_process = None
 
-with open("config.json") as f:
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
+
+with open(CONFIG_PATH) as f:
     config = json.load(f)
 
 BACKWARDS_ENABLED = config.get("backwards_enabled", False)
