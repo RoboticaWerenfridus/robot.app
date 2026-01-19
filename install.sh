@@ -77,7 +77,7 @@ jq \
 mv /tmp/config.json "$CONFIG_FILE"
 
 nmcli con delete "$ROBOT_NAME" 2>/dev/null || true
-nmcli con add type wifi ifname $HOTSPOT_INTERFACE con-name "$ROBOT_NAME" autoconnect yes ssid "$ROBOT_NAME"
+nmcli con add type wifi ifname "$HOTSPOT_INTERFACE" con-name "$ROBOT_NAME" autoconnect yes ssid "$ROBOT_NAME"
 nmcli con modify "$ROBOT_NAME" 802-11-wireless.mode ap
 nmcli con modify "$ROBOT_NAME" 802-11-wireless.band bg
 nmcli con modify "$ROBOT_NAME" wifi-sec.key-mgmt wpa-psk
@@ -87,7 +87,7 @@ nmcli con modify "$ROBOT_NAME" ipv4.method shared
 cat >/etc/dnsmasq.d/robot-app.conf <<EOF
 interface=$HOTSPOT_INTERFACE
 dhcp-range=10.42.0.2,10.42.0.20,255.255.255.0,24h
-address=/robot.app/10.42.0.1
+address=/$ROBOT_NAME.local/10.42.0.1
 EOF
 
 systemctl restart dnsmasq
@@ -113,26 +113,26 @@ systemctl enable $SERVICE_NAME
 systemctl restart $SERVICE_NAME
 
 ROBOT_CMD_PATH="/usr/local/bin/robot-app"
-cat >$ROBOT_CMD_PATH <<'EOF'
+cat >$ROBOT_CMD_PATH <<EOF
 #!/usr/bin/env bash
 set -e
 
 SERVICE="robot-app"
-HOTSPOT_NAME="$(nmcli -t -f NAME c | grep '^'${1:-})"
+ROBOT_NAME="$ROBOT_NAME"
 HOTSPOT_INTERFACE="wlan0"
 
-if [[ $EUID -ne 0 ]]; then
+if [[ \$EUID -ne 0 ]]; then
   echo "Use sudo"
   exit 1
 fi
 
-if [[ "$1" == "on" ]]; then
-  nmcli con up "$HOTSPOT_NAME"
-  systemctl enable --now $SERVICE
+if [[ "\$1" == "on" ]]; then
+  nmcli con up "\$ROBOT_NAME"
+  systemctl enable --now \$SERVICE
   echo "Robot hotspot and service enabled"
-elif [[ "$1" == "off" ]]; then
-  nmcli con down "$HOTSPOT_NAME" || true
-  systemctl disable --now $SERVICE
+elif [[ "\$1" == "off" ]]; then
+  nmcli con down "\$ROBOT_NAME" || true
+  systemctl disable --now \$SERVICE
   echo "Robot hotspot and service disabled"
 else
   echo "Usage: robot-app [on|off]"
