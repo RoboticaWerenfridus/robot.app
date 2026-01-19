@@ -24,15 +24,15 @@ RIGHT_BIAS = 100
 PWM_FREQ = 1000
 
 # --- GPIO Setup ---
-GPIO.setmode(GPIO.BCM)        # Set BCM pin numbering
 GPIO.setwarnings(False)
-GPIO.cleanup()                # Reset any existing GPIO/PWM to prevent conflicts
+GPIO.cleanup()   
 
 PWM_CHANNELS = {}
 
 # Initialize PWM channels safely
 for side, dirs in MOTORS.items():
     for pin in dirs.values():
+        GPIO.setmode(GPIO.BCM)  
         GPIO.setup(pin, GPIO.OUT)
         if pin in PWM_CHANNELS:
             PWM_CHANNELS[pin].stop()
