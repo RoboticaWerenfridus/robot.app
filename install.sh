@@ -32,9 +32,9 @@ STANDARD=${STANDARD:-Y}
 if [[ "$STANDARD" =~ ^[Yy]$ ]]; then
   BACKWARDS=false
   L_FWD=6
-  L_BWD=6
+  L_BWD=0
   R_FWD=12
-  R_BWD=12
+  R_BWD=0
 else
   BACKWARDS=true
   L_FWD=17
