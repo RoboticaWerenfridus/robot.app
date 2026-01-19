@@ -57,6 +57,10 @@ if [[ ${#HOTSPOT_PASS} -lt 8 ]]; then
   exit 1
 fi
 
+if [[ ! -f "$CONFIG_FILE" ]]; then
+  jq -n '{}' > "$CONFIG_FILE"
+fi
+
 jq \
   --argjson backwards "$BACKWARDS" \
   --argjson lf "$L_FWD" \
