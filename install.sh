@@ -2,7 +2,7 @@
 set -e
 
 APP_DIR="/opt/robot-app"
-CONFIG_FILE="$APP_DIR/robot.app/config.json"
+CONFIG_FILE="$APP_DIR/config.json"
 SERVICE_NAME="robot-app"
 PYTHON_BIN="/usr/bin/python3"
 
@@ -88,8 +88,8 @@ Description=Robot App
 After=network.target
 
 [Service]
-ExecStart=$PYTHON_BIN $APP_DIR/robot.app/app.py
-WorkingDirectory=$APP_DIR/robot.app
+ExecStart=$PYTHON_BIN $APP_DIR/app.py
+WorkingDirectory=$APP_DIR
 Restart=always
 User=root
 
