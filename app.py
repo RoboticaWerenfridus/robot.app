@@ -23,10 +23,10 @@ LEFT_BIAS = 85
 RIGHT_BIAS = 100
 PWM_FREQ = 1000
 
-# GPIO setup
-GPIO.setmode(GPIO.BCM)
+# --- GPIO Setup ---
+GPIO.setmode(GPIO.BCM)        # Set BCM pin numbering
 GPIO.setwarnings(False)
-GPIO.cleanup()  # reset any existing PWM to prevent conflicts
+GPIO.cleanup()                # Reset any existing GPIO/PWM to prevent conflicts
 
 PWM_CHANNELS = {}
 
@@ -34,11 +34,13 @@ PWM_CHANNELS = {}
 for side, dirs in MOTORS.items():
     for pin in dirs.values():
         GPIO.setup(pin, GPIO.OUT)
+        if pin in PWM_CHANNELS:
+            PWM_CHANNELS[pin].stop()
         pwm = GPIO.PWM(pin, PWM_FREQ)
         pwm.start(0)
         PWM_CHANNELS[pin] = pwm
 
-# Motor control functions
+# --- Motor Control Functions ---
 def stop():
     for pwm in PWM_CHANNELS.values():
         pwm.ChangeDutyCycle(0)
@@ -75,7 +77,7 @@ def drive(direction):
     elif direction == "right":
         right()
 
-# Flask routes
+# --- Flask Routes ---
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -93,8 +95,9 @@ def joystick():
 def set_mer():
     global mer_process
     mer = request.json.get("mer", False)
+    mer_script = os.path.join(BASE_DIR, "mer_us_sv.py")
     if mer and mer_process is None:
-        mer_process = subprocess.Popen(["python3", os.path.join(BASE_DIR, "mer_us_sv.py")])
+        mer_process = subprocess.Popen(["python3", mer_script])
     elif not mer and mer_process is not None:
         mer_process.terminate()
         mer_process.wait()
@@ -105,7 +108,7 @@ def set_mer():
 def accessory():
     return jsonify(status="ok", **request.json)
 
-# Cleanup on exit
+# --- Cleanup on exit ---
 def cleanup():
     stop()
     for pwm in PWM_CHANNELS.values():
@@ -116,5 +119,6 @@ def cleanup():
 
 atexit.register(cleanup)
 
+# --- Run Flask ---
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80)
