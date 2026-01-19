@@ -3,10 +3,10 @@
 # to stop the program type at the terminal [ctrl] and [c] simultaneously
 # the indentation blocks are 4, 8 or 12 spaces, do not use tabs
 
-import RPi.GPIO as GPIO; import time; GPIO.setwarnings(False)
+import RPi.GPIO as gpio; import time; gpio.setwarnings(False)
 time.sleep(7) # time to put the MER on the ground
 # constants used for driving logic
-line_of_sight = 45; turn_delay = 1
+line_of_sight = 45; turn_delay = 1.3
 
 # duty cycle values for the pulse width modulation of the servo. Default min.2 max.12 
 # check these values to make sure the servo properly rotates 40 degrees each side
@@ -19,21 +19,21 @@ class Robot:
     # initial setup of the robot
     def __init__(self):
         # set up the pin layout
-        GPIO.setmode(GPIO.BCM)
+        gpio.setmode(gpio.BCM)
 
         # set up the pins for output and input
-        GPIO.setup(self.motor_left, GPIO.OUT); GPIO.setup(self.motor_right, GPIO.OUT)
-        GPIO.setup(self.trig_pin, GPIO.OUT); GPIO.setup(self.echo_pin, GPIO.IN)
-        GPIO.setup(self.servo_pin, GPIO.OUT)
+        gpio.setup(self.motor_left, gpio.OUT); gpio.setup(self.motor_right, gpio.OUT)
+        gpio.setup(self.trig_pin, gpio.OUT); gpio.setup(self.echo_pin, gpio.IN)
+        gpio.setup(self.servo_pin, gpio.OUT)
         
         # start pulse width modulation for servo and motors
-        self.pwm_servo = GPIO.PWM(self.servo_pin, 50)
-        self.pwm_left = GPIO.PWM(self.motor_left, 1000)
-        self.pwm_right = GPIO.PWM(self.motor_right, 1000) 
+        self.pwm_servo = gpio.PWM(self.servo_pin, 50)
+        self.pwm_left = gpio.PWM(self.motor_left, 1000)
+        self.pwm_right = gpio.PWM(self.motor_right, 1000) 
 
         # default values: servo straight ahead, motors not moving, us sensor inactive
         self.pwm_servo.start(7); self.pwm_left.start(0); self.pwm_right.start(0)
-        GPIO.output(self.trig_pin, GPIO.LOW)
+        gpio.output(self.trig_pin, gpio.LOW)
 
     # cleanup of the robot
     def __del__(self):
@@ -65,18 +65,18 @@ class Robot:
     # use the ultrasonic sensor to look how far the nearest object is
     def look(self):
         # trigger the sensor by setting the pin to high, and then low again
-        GPIO.output(self.trig_pin, GPIO.HIGH); time.sleep(10e-6)
-        GPIO.output(self.trig_pin, GPIO.LOW)
+        gpio.output(self.trig_pin, gpio.HIGH); time.sleep(10e-6)
+        gpio.output(self.trig_pin, gpio.LOW)
 
         # define start and end time
         pulse_start = time.time(); pulse_end = time.time()
 
         # start counting when the echo pin is low
-        while GPIO.input(self.echo_pin) == GPIO.LOW:
+        while gpio.input(self.echo_pin) == gpio.LOW:
             pulse_start = time.time()
 
         # stop counting when the echo pin is high again (signal has come back)
-        while GPIO.input(self.echo_pin) == GPIO.HIGH:
+        while gpio.input(self.echo_pin) == gpio.HIGH:
             pulse_end = time.time()
         
         # Calculate the distance (speed of sound 34300 cm/s)
@@ -86,7 +86,7 @@ class Robot:
 my_robot = Robot()
 
 # initial speed of the robot
-my_robot.motor_speed(70,70)
+my_robot.motor_speed(100,100)
 
 # the main loop
 while True:
@@ -127,5 +127,4 @@ while True:
         my_robot.motor_speed(70,70)
 
 
-#GPIO.cleanup()          
-
+#gpio.cleanup()          
