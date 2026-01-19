@@ -12,19 +12,23 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
+echo "Installing dependencies..."
 apt update
-apt install -y git python3 python3-pip network-manager jq dnsmasq
+apt install -y git python3 python3-pip network-manager jq avahi-daemon
 
+# Clone or update robot app
 if [[ ! -d "$APP_DIR" ]]; then
   git clone https://github.com/RoboticaWerenfridus/robot.app "$APP_DIR"
 else
   git -C "$APP_DIR" pull
 fi
 
+# Install Python dependencies
 if [[ -f "$APP_DIR/requirements.txt" ]]; then
   pip3 install -r "$APP_DIR/requirements.txt"
 fi
 
+# Robot motor configuration
 read -rp "Do you have a standard robot? (Y/n): " STANDARD
 STANDARD=${STANDARD:-Y}
 
@@ -56,6 +60,8 @@ if [[ ${#HOTSPOT_PASS} -lt 8 ]]; then
   exit 1
 fi
 
+# Write robot config
+mkdir -p "$(dirname "$CONFIG_FILE")"
 if [[ ! -f "$CONFIG_FILE" ]]; then
   jq -n '{}' > "$CONFIG_FILE"
 fi
@@ -76,26 +82,27 @@ jq \
 
 mv /tmp/config.json "$CONFIG_FILE"
 
+# Remove old hotspot connection
 nmcli con delete "$ROBOT_NAME" 2>/dev/null || true
+
+# Create hotspot with NetworkManager (IPv4 shared)
 nmcli con add type wifi ifname "$HOTSPOT_INTERFACE" con-name "$ROBOT_NAME" autoconnect yes ssid "$ROBOT_NAME"
 nmcli con modify "$ROBOT_NAME" 802-11-wireless.mode ap
 nmcli con modify "$ROBOT_NAME" 802-11-wireless.band bg
 nmcli con modify "$ROBOT_NAME" wifi-sec.key-mgmt wpa-psk
 nmcli con modify "$ROBOT_NAME" wifi-sec.psk "$HOTSPOT_PASS"
 nmcli con modify "$ROBOT_NAME" ipv4.method shared
+nmcli con up "$ROBOT_NAME"
 
-cat >/etc/dnsmasq.d/robot-app.conf <<EOF
-interface=$HOTSPOT_INTERFACE
-dhcp-range=10.42.0.2,10.42.0.20,255.255.255.0,24h
-address=/$ROBOT_NAME.local/10.42.0.1
-EOF
+# Enable Avahi for .local resolution
+systemctl enable --now avahi-daemon
 
-systemctl restart dnsmasq
-
+# Create systemd service for robot app
 cat >/etc/systemd/system/$SERVICE_NAME.service <<EOF
 [Unit]
 Description=Robot App
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 ExecStart=$PYTHON_BIN $APP_DIR/app.py
@@ -112,14 +119,15 @@ systemctl daemon-reload
 systemctl enable $SERVICE_NAME
 systemctl restart $SERVICE_NAME
 
+# Create user-friendly command
 ROBOT_CMD_PATH="/usr/local/bin/robot-app"
 cat >$ROBOT_CMD_PATH <<EOF
 #!/usr/bin/env bash
 set -e
 
-SERVICE="robot-app"
+SERVICE="$SERVICE_NAME"
 ROBOT_NAME="$ROBOT_NAME"
-HOTSPOT_INTERFACE="wlan0"
+HOTSPOT_INTERFACE="$HOTSPOT_INTERFACE"
 
 if [[ \$EUID -ne 0 ]]; then
   echo "Use sudo"
@@ -141,8 +149,9 @@ EOF
 
 chmod +x $ROBOT_CMD_PATH
 
-echo "Installation complete"
+echo "Installation complete!"
 echo "Hotspot name: $ROBOT_NAME"
 echo "Hotspot password: $HOTSPOT_PASS"
 echo "Use 'sudo robot-app on' to start hotspot and service"
 echo "Use 'sudo robot-app off' to stop hotspot and service"
+echo "Once connected, access your robot at: http://$ROBOT_NAME.local"
