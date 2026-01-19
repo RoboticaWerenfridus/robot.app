@@ -2,13 +2,14 @@ from flask import Flask, render_template, request, jsonify
 import RPi.GPIO as GPIO
 import json
 import atexit
-import os
 import subprocess
+import os
 
 app = Flask(__name__)
 last_direction = "stop"
 mer_process = None
 
+# Load config.json relative to this script
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 
@@ -22,11 +23,14 @@ LEFT_BIAS = 85
 RIGHT_BIAS = 100
 PWM_FREQ = 1000
 
+# GPIO setup
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
+GPIO.cleanup()  # reset any existing PWM to prevent conflicts
 
 PWM_CHANNELS = {}
 
+# Initialize PWM channels safely
 for side, dirs in MOTORS.items():
     for pin in dirs.values():
         GPIO.setup(pin, GPIO.OUT)
@@ -34,6 +38,7 @@ for side, dirs in MOTORS.items():
         pwm.start(0)
         PWM_CHANNELS[pin] = pwm
 
+# Motor control functions
 def stop():
     for pwm in PWM_CHANNELS.values():
         pwm.ChangeDutyCycle(0)
@@ -70,6 +75,7 @@ def drive(direction):
     elif direction == "right":
         right()
 
+# Flask routes
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -88,7 +94,7 @@ def set_mer():
     global mer_process
     mer = request.json.get("mer", False)
     if mer and mer_process is None:
-        mer_process = subprocess.Popen(["python3", "mer_us_sv.py"])
+        mer_process = subprocess.Popen(["python3", os.path.join(BASE_DIR, "mer_us_sv.py")])
     elif not mer and mer_process is not None:
         mer_process.terminate()
         mer_process.wait()
@@ -99,6 +105,7 @@ def set_mer():
 def accessory():
     return jsonify(status="ok", **request.json)
 
+# Cleanup on exit
 def cleanup():
     stop()
     for pwm in PWM_CHANNELS.values():
