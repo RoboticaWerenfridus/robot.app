@@ -24,7 +24,7 @@ if [[ -f "$APP_DIR/requirements.txt" ]]; then
   pip3 install -r "$APP_DIR/requirements.txt"
 fi
 
-echo "ROBOT SETUP WIZARD"
+echo "Setup your robot"
 
 read -rp "Do you have a standard robot? (Y/n): " STANDARD
 STANDARD=${STANDARD:-Y}
